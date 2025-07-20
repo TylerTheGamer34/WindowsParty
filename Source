@@ -1,0 +1,87 @@
+import ctypes
+import sys
+import os
+import time
+import win32api
+import win32con
+import win32gui
+from PIL import Image, ImageDraw
+
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+
+if not is_admin():
+    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+    sys.exit()
+
+
+def set_wallpaper(image_path):
+    SPI_SETDESKWALLPAPER = 0x0014
+    try:
+        ctypes.windll.user32.SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, image_path, 3)
+    except Exception as e:
+        print(f"Error setting wallpaper: {e}")
+
+
+def create_rainbow_image(width=1920, height=1080):
+    img = Image.new('RGB', (width, height))
+    draw = ImageDraw.Draw(img)
+
+    for y in range(height):
+        hue = y / height * 360
+        r, g, b = hsv_to_rgb(hue, 1.0, 1.0)
+        draw.line([(0, y), (width, y)], fill=(int(r * 255), int(g * 255), int(b * 255)))
+
+    temp_path = os.path.join(os.environ['TEMP'], 'rainbow_wallpaper.bmp')
+    img.save(temp_path)
+    return temp_path
+
+
+def hsv_to_rgb(h, s, v):
+    h = h % 360
+    c = v * s
+    x = c * (1 - abs((h / 60) % 2 - 1))
+    m = v - c
+
+    if 0 <= h < 60:
+        r, g, b = c, x, 0
+    elif 60 <= h < 120:
+        r, g, b = x, c, 0
+    elif 120 <= h < 180:
+        r, g, b = 0, c, x
+    elif 180 <= h < 240:
+        r, g, b = 0, x, c
+    elif 240 <= h < 300:
+        r, g, b = x, 0, c
+    else:
+        r, g, b = c, 0, x
+
+    return (r + m, g + m, b + m)
+
+
+def cycle_colors():
+    print("Starting Windows Party Mode! Press Ctrl+C to stop.")
+    try:
+        while True:
+            wallpaper_path = create_rainbow_image()
+            set_wallpaper(wallpaper_path)
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        print("\nParty mode stopped.")
+
+
+if __name__ == "__main__":
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        print("Installing required packages...")
+        import subprocess
+
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow", "pywin32"])
+
+    cycle_colors()
